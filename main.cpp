@@ -11,15 +11,17 @@ const double disL = 5.3;
 const double disR = 5.3;
 const double disB = 6.3;
 const double wheelCircum = 4.2;
-double leftDeg,rightDeg,backDeg,leftInch,rightInch,backInch = 0;
-/**
+const double pi = 3.14159265359;
+double leftDeg,rightDeg,backDeg,leftInch,rightInch,backInch,sideHeading,imuHeading,leftDegLast,rightDegLast,backDegLast,leftInchLast,rightInchLast,backInchLast,headingLast,headingDelta,backInchDelta, rightInchDelta, leftInchDelta = 0;
+/**Last
  * A callback function for LLEMU's center button.
  *
  * When this callback is fired, it will toggle line 2 of the LCD text between
  * "I was pressed!" and nothing.
  */
-//The purpose of this function is to prevent the IMU from giving a heading of 360, because it is a heading of 0
-float overflowCheck(float deg){
+/// @brief  purpose of this function is to prevent the IMU from giving a heading of 360, because it is a heading of 0
+/// @param deg the degree to check for overflow.
+double overflowCheck(double deg){
 	if (deg == 360){
 		return 0;
 	}
@@ -27,25 +29,49 @@ float overflowCheck(float deg){
 		return deg;
 	}
 }
+
+/// @brief gets the delta (abs val) of 2 radians
+/// @param rad1 Radian 1
+/// @param rad2 Radian 2
+/// @return Change between the 2
+double subRadians(double rad1, double rad2){
+	rad1 = tan((rad1 * pi / 180.0));
+	rad2 = tan((rad2 * pi / 180.0));
+	double delta = fabs(rad1 - rad2);
+	return delta * pi/180;
+}
+
+
+/// @brief Update deg and inch values based off encoder readings
 void updateDistances(){
+	double leftInchLast = leftInchLast;
+	double rightInchLast = rightInchLast;
+	double backInchLast = backInchLast;
 	double leftDeg = leftEncoder.get_value();
 	double rightDeg = rightEncoder.get_value();
 	double backDeg = backEncoder.get_value();
 	double leftInch = leftEncoder.get_value() / 360 * wheelCircum;
 	double rightInch = rightEncoder.get_value() / 360 * wheelCircum;
 	double backInch = backEncoder.get_value() / 360 * wheelCircum;
+	double leftInchDelta = leftInch - leftInchLast;
+	double rightInchDelta = rightInch - rightInchLast;
+	double backInchDelta = backInch - backInchLast;
 }
-void checkHeading(){
+/// @brief Updates the IMU and side heading variables
+void updateHeading(){
+	double headingLast = imuHeading;
 	double imuHeading = overflowCheck(IMU.get_heading());
 	double sideHeading = (leftInch - rightInch) /(disL + disR);
+	double headingDelta = subRadians(headingLast, imuHeading);
 }
+
 
 void on_center_button() {
 	
 	static bool pressed = false;
 	pressed = !pressed;
 	if (pressed) {
-		pros::lcd::set_text(2, "I was pressed!");
+		pros::lcd::set_text(2, std::to_string(sideHeading));
 	} else {
 		pros::lcd::clear_line(2);
 	}
