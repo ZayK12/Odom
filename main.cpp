@@ -12,7 +12,9 @@ const double disR = 5.3;
 const double disB = 6.3;
 const double wheelCircum = 4.2;
 const double pi = 3.14159265359;
-double leftDeg,rightDeg,backDeg,leftInch,rightInch,backInch,sideHeading,imuHeading,leftDegLast,rightDegLast,backDegLast,leftInchLast,rightInchLast,backInchLast,headingLast,headingDelta,backInchDelta, rightInchDelta, leftInchDelta = 0;
+double leftDeg,rightDeg,backDeg,leftInch,rightInch,backInch,sideHeading,imuHeading,leftDegLast,rightDegLast,backDegLast,leftInchLast,rightInchLast,backInchLast,headingLast,headingDelta,backInchDelta, rightInchDelta, leftInchDelta, orientation = 0;
+std::array <double, 2> localOffset = {0,0};
+std::array <double, 2> robopos = {0,0};
 /**Last
  * A callback function for LLEMU's center button.
  *
@@ -40,7 +42,19 @@ double subRadians(double rad1, double rad2){
 	double delta = fabs(rad1 - rad2);
 	return delta * pi/180;
 }
-
+/// @brief Converts a coordinate set from cartesian degrees to polar 
+/// @param coordSet an array with the size of 2
+void cartesianToPolar(std::array<double, 2>& coordSet){
+	coordSet[0] = sqrt(pow(coordSet[0], 2) + pow(coordSet[1], 2));
+	coordSet[1] = atan2(coordSet[1],coordSet[0]);
+	
+}
+void polarToCartesian(double& radius, double& theta){
+	double X = radius * cos(theta);
+	double Y = radius * sin(theta);
+	radius = X;
+	theta = Y;
+}
 
 /// @brief Update deg and inch values based off encoder readings
 void updateDistances(){
@@ -64,7 +78,27 @@ void updateHeading(){
 	double sideHeading = (leftInch - rightInch) /(disL + disR);
 	double headingDelta = subRadians(headingLast, imuHeading);
 }
-
+/// @brief updates the change in X and Y values
+void calculateLocalOffset(){
+	std::array <double, 2> localOffset = {backInchDelta, rightInchDelta};
+	if(headingDelta != 0){
+		localOffset[0] = 2 * sin(headingDelta/2) * ((backInchDelta / headingDelta) + disB);
+		localOffset[1] = 2 * sin(headingDelta/2) * ((rightInchDelta / headingDelta) + disR);
+	}
+	else{
+		localOffset[0] = backInchDelta;
+		localOffset[1] = rightInchDelta;
+	}
+}
+/// @brief Fixes the rotation offset and updates the global position values
+void rotateToGlobalFrame(){
+	double orientation = (headingLast + headingDelta) / 2;
+	cartesianToPolar(localOffset);
+	localOffset[1] = localOffset[1] - orientation;
+	polarToCartesian(localOffset[0],localOffset[1]);
+	robopos[0] += localOffset[0];
+	robopos[1] += localOffset[1];
+}
 
 void on_center_button() {
 	
